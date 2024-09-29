@@ -10,7 +10,7 @@ const { v4: uuidv4 } = require("uuid");
 
 const feedRoutes = require("./routes/feed");
 const KEYS = require("./keys");
-const appDir = require("./util/file");
+const { appDir } = require("./util/file");
 
 const fileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
