@@ -9,6 +9,8 @@ const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
 
 const feedRoutes = require("./routes/feed");
+const authRoutes = require("./routes/auth");
+
 const KEYS = require("./keys");
 const { appDir } = require("./util/file");
 
@@ -42,21 +44,23 @@ app.use(
 );
 app.use("/images", express.static(path.join(appDir, "images")));
 
+app.use("/auth", authRoutes);
 app.use("/feed", feedRoutes);
 
 app.use((error, req, res, next) => {
   const status = error.statusCode || 500;
   const message = error.message;
+  const data = error.data;
 
-  return res.status(status).json({ message: message });
+  return res.status(status).json({ message: message, data: data });
 });
 
 mongoose
   .connect(KEYS.MONGODB_CONNECTION_URI)
   .then(() => {
     console.log("connected to the database");
-    app.listen(8080, () => {
-      console.log(`listening to port ${8080}`);
+    app.listen(KEYS.PORT, () => {
+      console.log(`listening to port ${KEYS.PORT}`);
     });
   })
   .catch((err) => {
