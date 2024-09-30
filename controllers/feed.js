@@ -5,9 +5,13 @@ const { validationResult } = require("express-validator");
 const fileUtility = require("../util/file");
 
 exports.getPosts = async (req, res, next) => {
+  const ITEMS_PER_PAGE = 2;
   try {
+    const page = req.query.page || 1;
     const totalPostsCount = await Post.countDocuments();
-    const posts = await Post.find();
+    const posts = await Post.find()
+      .skip((page - 1) * ITEMS_PER_PAGE)
+      .limit(ITEMS_PER_PAGE);
     res.status(200).json({
       message: "Successfully retrieved posts",
       posts: posts,
