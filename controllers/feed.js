@@ -1,4 +1,5 @@
 const Post = require("../models/post");
+const User = require("../models/user");
 
 const { validationResult } = require("express-validator");
 
@@ -10,6 +11,10 @@ exports.getPosts = async (req, res, next) => {
     const page = req.query.page || 1;
     const totalPostsCount = await Post.countDocuments();
     const posts = await Post.find()
+      .populate({
+        path: "creator",
+        select: "_id name",
+      })
       .skip((page - 1) * ITEMS_PER_PAGE)
       .limit(ITEMS_PER_PAGE);
     res.status(200).json({
@@ -32,6 +37,7 @@ exports.createPost = async (req, res, next) => {
     if (!errors.isEmpty() || !req.file) {
       const error = new Error("Validation failed! Enter the valid data.");
       error.statusCode = 422;
+      error.data = errors.array();
       throw error;
     }
 
@@ -39,14 +45,18 @@ exports.createPost = async (req, res, next) => {
     const content = req.body.content;
     const image = req.file;
     const imageUrl = image.path.replace("\\", "/");
+    const userId = req.userId;
     const post = new Post({
       title: title,
       content: content,
       imageUrl: imageUrl,
-      creator: { name: "sumanth" },
+      creator: userId,
     });
 
     const postDoc = await post.save();
+    const user = await User.findById(userId);
+    user.posts.push(post);
+    await user.save();
     res.status(201).json({
       message: "Successfully created a post!",
       post: postDoc,
@@ -62,7 +72,10 @@ exports.createPost = async (req, res, next) => {
 exports.getPost = async (req, res, next) => {
   try {
     const postId = req.params.postId;
-    const post = await Post.findById(postId);
+    const post = await Post.findById(postId).populate({
+      path: "creator",
+      select: "_id name",
+    });
     if (!post) {
       const error = new Error("Could not find the post!");
       error.statusCode = 404;
@@ -87,6 +100,7 @@ exports.updatePost = async (req, res, next) => {
     if (!errors.isEmpty()) {
       const error = new Error("Validaion failed! Enter the valid data");
       error.statusCode = 422;
+      error.data = errors.array();
       throw error;
     }
 
@@ -132,11 +146,19 @@ exports.deletePost = async (req, res, next) => {
     const postId = req.params.postId;
     const post = await Post.findById(postId);
     if (!post) {
-      const error = new Error("Could'nt find the post.");
+      const error = new Error("Couldn't find the post.");
       error.statusCode = 404;
       throw error;
     }
-    //post belongs to user??
+    if (post.creator.toString() !== req.userId.toString()) {
+      const error = new Error("Not authorized!");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const user = await User.findById(req.userId);
+    user.posts.pull(postId);
+    await user.save();
 
     fileUtility.deleteFile(post.imageUrl);
     await Post.findByIdAndDelete(postId);
